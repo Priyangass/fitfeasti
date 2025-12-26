@@ -6,20 +6,33 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalStorage, SavedRecipe, SavedWorkoutPlan } from '@/hooks/useLocalStorage';
-import { Dumbbell, Utensils, Target, TrendingUp, ArrowRight, Flame, Activity, Heart } from 'lucide-react';
+import { useGamification } from '@/hooks/useGamification';
+import { useWellness } from '@/hooks/useWellness';
+import { 
+  Dumbbell, Utensils, Target, TrendingUp, ArrowRight, Flame, Activity, 
+  Heart, Droplet, Moon, Zap, Brain 
+} from 'lucide-react';
 
 export default function Dashboard() {
   const { user, userStats, updateUserStats } = useAuth();
   const [savedRecipes] = useLocalStorage<SavedRecipe[]>('fitfeast_saved_recipes', []);
   const [savedWorkouts] = useLocalStorage<SavedWorkoutPlan[]>('fitfeast_saved_workouts', []);
+  const { currentStreak, earnedBadges, dailyChallenges } = useGamification();
+  const { getTodaysHydration, dailyWaterGoal } = useWellness();
   
   const [height, setHeight] = useState(userStats?.height?.toString() || '');
   const [weight, setWeight] = useState(userStats?.weight?.toString() || '');
   const [age, setAge] = useState(userStats?.age?.toString() || '');
   const [goal, setGoal] = useState(userStats?.goal || '');
   const [activityLevel, setActivityLevel] = useState(userStats?.activityLevel || '');
+
+  const todaysHydration = getTodaysHydration();
+  const hydrationProgress = (todaysHydration.glasses / dailyWaterGoal) * 100;
+  const todaysChallenge = dailyChallenges[0];
 
   const handleSaveStats = () => {
     if (height && weight && age && goal && activityLevel) {
@@ -36,7 +49,6 @@ export default function Dashboard() {
   const calculateCalories = () => {
     if (!userStats) return null;
     
-    // Basic BMR calculation (Mifflin-St Jeor)
     const bmr = 10 * userStats.weight + 6.25 * userStats.height - 5 * userStats.age + 5;
     
     const activityMultipliers: Record<string, number> = {
@@ -76,6 +88,33 @@ export default function Dashboard() {
           </p>
         </div>
 
+        {/* Streak & Challenge Banner */}
+        {(currentStreak > 0 || todaysChallenge) && (
+          <div className="grid sm:grid-cols-2 gap-4 mb-6">
+            {currentStreak > 0 && (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-accent/20 to-accent/5 border border-accent/20 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                  <Flame className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{currentStreak} day streak! 🔥</p>
+                  <p className="text-sm text-muted-foreground">Keep it going!</p>
+                </div>
+              </div>
+            )}
+            {todaysChallenge && !todaysChallenge.completed && (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-warning/20 to-warning/5 border border-warning/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-warning" />
+                  <span className="font-semibold">Daily Challenge</span>
+                </div>
+                <p className="text-sm mb-2">{todaysChallenge.title}</p>
+                <Progress value={(todaysChallenge.current / todaysChallenge.target) * 100} className="h-2" />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
@@ -100,11 +139,12 @@ export default function Dashboard() {
             bgColor="bg-success/10"
           />
           <StatCard
-            icon={<Activity className="w-5 h-5" />}
-            label="Activity Level"
-            value={userStats?.activityLevel?.replace('_', ' ') || 'Not set'}
-            color="text-warning"
-            bgColor="bg-warning/10"
+            icon={<Droplet className="w-5 h-5" />}
+            label="Hydration"
+            value={`${todaysHydration.glasses}/${dailyWaterGoal}`}
+            color="text-blue-500"
+            bgColor="bg-blue-500/10"
+            progress={hydrationProgress}
           />
         </div>
 
@@ -203,7 +243,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="text-lg font-display font-semibold mb-2">Generate Workout Plan</h3>
                     <p className="text-muted-foreground text-sm mb-4">
-                      Get a personalized 7-day workout plan based on your goals and fitness level.
+                      Get a personalized 7-day workout plan based on your goals.
                     </p>
                     <Link to="/dashboard/workouts">
                       <Button className="gap-2">
@@ -225,7 +265,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="text-lg font-display font-semibold mb-2">Generate Recipes</h3>
                     <p className="text-muted-foreground text-sm mb-4">
-                      Enter your available ingredients and get delicious, healthy recipe ideas.
+                      Enter your ingredients and get delicious, healthy recipe ideas.
                     </p>
                     <Link to="/dashboard/recipes">
                       <Button variant="secondary" className="gap-2">
@@ -238,27 +278,54 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-card card-hover">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent mb-4">
-                      <Heart className="w-6 h-6" />
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="shadow-card card-hover">
+                <CardContent className="p-4">
+                  <Link to="/dashboard/wellness" className="flex flex-col items-center text-center">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 mb-2">
+                      <Brain className="w-5 h-5" />
                     </div>
-                    <h3 className="text-lg font-display font-semibold mb-2">Your Favorites</h3>
-                    <p className="text-muted-foreground text-sm mb-4">
-                      View your saved workout plans and favorite recipes in one place.
-                    </p>
-                    <Link to="/dashboard/favorites">
-                      <Button variant="outline" className="gap-2">
-                        View Favorites
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
+                    <span className="font-medium text-sm">Wellness</span>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-card card-hover">
+                <CardContent className="p-4">
+                  <Link to="/dashboard/progress" className="flex flex-col items-center text-center">
+                    <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center text-warning mb-2">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium text-sm">Progress</span>
+                  </Link>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Badges Preview */}
+            {earnedBadges.length > 0 && (
+              <Card className="shadow-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-medium text-sm">Recent Badges</span>
+                    <Link to="/dashboard/progress" className="text-xs text-primary hover:underline">
+                      View all
                     </Link>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex gap-2">
+                    {earnedBadges.slice(0, 4).map((badge) => (
+                      <div
+                        key={badge.id}
+                        className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center text-xl"
+                        title={badge.name}
+                      >
+                        {badge.icon}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>
@@ -266,12 +333,13 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ icon, label, value, color, bgColor }: {
+function StatCard({ icon, label, value, color, bgColor, progress }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   color: string;
   bgColor: string;
+  progress?: number;
 }) {
   return (
     <Card className="shadow-card">
@@ -280,9 +348,12 @@ function StatCard({ icon, label, value, color, bgColor }: {
           <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center ${color}`}>
             {icon}
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-sm text-muted-foreground">{label}</p>
             <p className="text-lg font-semibold capitalize">{value}</p>
+            {progress !== undefined && (
+              <Progress value={Math.min(progress, 100)} className="h-1 mt-1" />
+            )}
           </div>
         </div>
       </CardContent>

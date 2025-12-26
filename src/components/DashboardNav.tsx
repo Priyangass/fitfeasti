@@ -1,21 +1,65 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sparkles, LayoutDashboard, Utensils, Dumbbell, Heart, LogOut, Menu, X } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { 
+  Sparkles, LayoutDashboard, Utensils, Dumbbell, Heart, 
+  LogOut, Menu, X, TrendingUp, Brain, FileDown 
+} from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useLocalStorage, SavedRecipe, SavedWorkoutPlan } from '@/hooks/useLocalStorage';
+import { exportToPDF, exportToCSV } from '@/utils/exportUtils';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardNav() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [savedRecipes] = useLocalStorage<SavedRecipe[]>('fitfeast_saved_recipes', []);
+  const [savedWorkouts] = useLocalStorage<SavedWorkoutPlan[]>('fitfeast_saved_workouts', []);
+  const { toast } = useToast();
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/workouts', label: 'Workouts', icon: Dumbbell },
     { href: '/dashboard/recipes', label: 'Recipes', icon: Utensils },
+    { href: '/dashboard/wellness', label: 'Wellness', icon: Brain },
+    { href: '/dashboard/progress', label: 'Progress', icon: TrendingUp },
     { href: '/dashboard/favorites', label: 'Favorites', icon: Heart },
   ];
+
+  const handleExportPDF = () => {
+    if (savedWorkouts.length === 0 && savedRecipes.length === 0) {
+      toast({
+        title: 'Nothing to export',
+        description: 'Save some workouts or recipes first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    exportToPDF(savedWorkouts, savedRecipes);
+    toast({ title: 'PDF export ready!', description: 'Print dialog opened.' });
+  };
+
+  const handleExportCSV = () => {
+    if (savedWorkouts.length === 0 && savedRecipes.length === 0) {
+      toast({
+        title: 'Nothing to export',
+        description: 'Save some workouts or recipes first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    exportToCSV(savedWorkouts, savedRecipes);
+    toast({ title: 'CSV exported!', description: 'File downloaded.' });
+  };
 
   const handleLogout = () => {
     logout();
@@ -34,7 +78,7 @@ export default function DashboardNav() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = location.pathname === link.href;
@@ -57,7 +101,26 @@ export default function DashboardNav() {
           </div>
 
           {/* User Info & Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Export Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <FileDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  Export to PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  Export to CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <ThemeToggle />
+
             <span className="text-sm text-muted-foreground hidden sm:block">
               Hi, <span className="text-foreground font-medium">{user?.name?.split(' ')[0]}</span>
             </span>
@@ -75,7 +138,7 @@ export default function DashboardNav() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden"
+              className="lg:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -85,7 +148,7 @@ export default function DashboardNav() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden pt-4 pb-2 border-t border-border mt-3 animate-fade-in">
+          <div className="lg:hidden pt-4 pb-2 border-t border-border mt-3 animate-fade-in">
             <div className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 const Icon = link.icon;
